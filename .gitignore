@@ -1,0 +1,15 @@
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+*.pyc
+*.pyo
+*.pth
+*.safetensors
+*.safetensors.index.json
+converted/
+dist/
+build/
+rwkv-7-world-0b4-hf/
+rwkv7_conv_smoke_*/
+rwkv7_vllm_smoke_*/
