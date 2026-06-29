@@ -215,6 +215,17 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(tmp_path: Path, capsy
     assert config["max_position_embeddings"] == 4096
     assert config["bos_token_id"] == 65532
     assert config["torch_dtype"] == "bfloat16"
+    generation_config = json.loads((output_dir / "generation_config.json").read_text(encoding="utf-8"))
+    assert generation_config["temperature"] == 1.0
+    assert generation_config["top_p"] == 0.5
+    assert generation_config["frequency_penalty"] == 0.3
+    assert generation_config["presence_penalty"] == 0.4
+    assert generation_config["repetition_penalty"] == 1.1
+    assert "logit_bias" not in generation_config
+    assert "seed" not in generation_config
+    assert generation_config["chat_template_kwargs"] == {
+        "enable_thinking": True,
+    }
     assert tokenizer_config["tokenizer_class"] == "RwkvTokenizer"
     assert tokenizer_config["auto_map"]["AutoTokenizer"][0] == "hf_rwkv_tokenizer.RwkvTokenizer"
     assert tokenizer_config["chat_template"] == "{{ '<|im_start|>User: ' + messages[0]['content'] }}"

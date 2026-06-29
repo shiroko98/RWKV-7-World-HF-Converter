@@ -374,10 +374,15 @@ def build_generation_config(
         "pad_token_id": special_token_ids["pad_token_id"],
         "max_window_size": max_position_embeddings,
         "max_new_tokens": max_position_embeddings,
+        "temperature": 1.0,
         "do_sample": True,
-        "top_k": 0,
-        "top_p": 0.1,
-        "repetition_penalty": 1.0,
+        "top_p": 0.5,
+        "frequency_penalty": 0.3,
+        "presence_penalty": 0.4,
+        "repetition_penalty": 1.1,
+        "chat_template_kwargs": {
+            "enable_thinking": True,
+        },
     }
 
 
