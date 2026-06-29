@@ -23,6 +23,7 @@ CANONICAL_VOCAB_NAME = "rwkv_vocab_v20260603.txt"
 MODEL_INDEX_NAME = "model.safetensors.index.json"
 BLOCK_RE = re.compile(r"blocks\.(\d+)\.(.+)")
 CTX_RE = re.compile(r"ctx(\d+)")
+DEFAULT_MAX_POSITION_EMBEDDINGS = 86016
 
 TOP_LEVEL_NAME_MAP = {
     "emb.weight": "model.embed_tokens.weight",
@@ -207,7 +208,7 @@ def infer_max_position_embeddings(
     match = CTX_RE.search(source.stem)
     if match is not None:
         return int(match.group(1))
-    return 2048
+    return DEFAULT_MAX_POSITION_EMBEDDINGS
 
 
 def torch_dtype_to_hf_string(dtype: torch.dtype) -> str:

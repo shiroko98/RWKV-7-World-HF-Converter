@@ -32,7 +32,7 @@ Important flags:
 
 - `--source`: native RWKV7 `.pth` or `.pt`
 - `--output-dir`: target HF directory
-- `--max-position-embeddings`: optional override when the checkpoint filename does not contain `ctxNNNN`
+- `--max-position-embeddings`: optional override when the checkpoint filename does not contain `ctxNNNN`; otherwise defaults to `86016`
 - `--max-shard-size`: shard size for safetensors output, default `5GB`
 - `--overwrite`: replace an existing output directory
 

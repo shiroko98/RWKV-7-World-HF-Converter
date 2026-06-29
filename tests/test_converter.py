@@ -129,7 +129,7 @@ def test_infer_max_position_embeddings_prefers_override_and_ctx_hint():
     path = Path("rwkv7-sample-ctx8192.pth")
     assert converter.infer_max_position_embeddings(path, None) == 8192
     assert converter.infer_max_position_embeddings(path, 32768) == 32768
-    assert converter.infer_max_position_embeddings(Path("rwkv7-sample.pth"), None) == 2048
+    assert converter.infer_max_position_embeddings(Path("rwkv7-sample.pth"), None) == 86016
 
 
 def test_build_tokenizer_files_requires_supported_eot_token(tmp_path: Path):
