@@ -83,8 +83,8 @@ def write_vocab(path: Path) -> None:
         "65530 '<|im_start|>' 12",
         "65531 '<|im_end|>' 10",
         "65532 '<|endoftext|>' 13",
-        "65533 '<|think|>' 9",
-        "65534 '<|tool_call|>' 13",
+        "65533 '<think>' 7",
+        "65534 '<tool_call>' 11",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

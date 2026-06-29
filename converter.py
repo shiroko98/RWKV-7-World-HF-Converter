@@ -79,8 +79,8 @@ SPECIAL_TOKEN_FALLBACKS = (
 EXTRA_SPECIAL_TOKENS = [
     "<|im_start|>",
     "<|im_end|>",
-    "<|think|>",
-    "<|tool_call|>",
+    "<think>",
+    "<tool_call>",
 ]
 
 
