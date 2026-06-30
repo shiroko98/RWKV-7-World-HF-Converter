@@ -77,9 +77,12 @@ SPECIAL_TOKEN_FALLBACKS = (
     "<s>",
 )
 
-EXTRA_SPECIAL_TOKENS = [
+HF_ADDITIONAL_SPECIAL_TOKENS = [
     "<|im_start|>",
     "<|im_end|>",
+]
+
+PLAIN_CONTROL_TOKENS = [
     "<think>",
     "<tool_call>",
 ]
@@ -235,7 +238,11 @@ def read_vocab_token_ids(vocab_path: Path) -> dict[str, int]:
                     token_text = token.decode("utf-8")
                 except UnicodeDecodeError:
                     continue
-            if token_text in SPECIAL_TOKEN_FALLBACKS or token_text in EXTRA_SPECIAL_TOKENS:
+            if (
+                token_text in SPECIAL_TOKEN_FALLBACKS
+                or token_text in HF_ADDITIONAL_SPECIAL_TOKENS
+                or token_text in PLAIN_CONTROL_TOKENS
+            ):
                 token_ids[token_text] = token_id
     return token_ids
 
@@ -256,7 +263,13 @@ def build_tokenizer_files(
 ) -> tuple[dict[str, int], dict[str, Any], dict[str, Any], dict[str, int]]:
     token_ids = read_vocab_token_ids(vocab_path)
     primary_special_token = resolve_primary_special_token(token_ids)
-    available_extra_tokens = [token for token in EXTRA_SPECIAL_TOKENS if token in token_ids]
+    available_extra_tokens = [
+        token for token in HF_ADDITIONAL_SPECIAL_TOKENS if token in token_ids
+    ]
+    hf_special_token_ids = {
+        token: token_ids[token]
+        for token in (primary_special_token, *available_extra_tokens)
+    }
     chat_template = chat_template_path.read_text(encoding="utf-8")
 
     tokenizer_config = {
@@ -286,7 +299,7 @@ def build_tokenizer_files(
                 "single_word": False,
                 "special": True,
             }
-            for token, token_id in token_ids.items()
+            for token, token_id in hf_special_token_ids.items()
         },
     }
 

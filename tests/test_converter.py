@@ -208,6 +208,7 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(tmp_path: Path, capsy
 
     config = json.loads((output_dir / "config.json").read_text(encoding="utf-8"))
     tokenizer_config = json.loads((output_dir / "tokenizer_config.json").read_text(encoding="utf-8"))
+    special_tokens_map = json.loads((output_dir / "special_tokens_map.json").read_text(encoding="utf-8"))
     index = json.loads((output_dir / converter.MODEL_INDEX_NAME).read_text(encoding="utf-8"))
 
     assert config["model_type"] == "rwkv7"
@@ -230,6 +231,18 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(tmp_path: Path, capsy
     assert tokenizer_config["auto_map"]["AutoTokenizer"][0] == "hf_rwkv_tokenizer.RwkvTokenizer"
     assert tokenizer_config["chat_template"] == "{{ '<|im_start|>User: ' + messages[0]['content'] }}"
     assert "<|im_start|>" in tokenizer_config["additional_special_tokens"]
+    assert "<think>" not in tokenizer_config["additional_special_tokens"]
+    assert "<tool_call>" not in tokenizer_config["additional_special_tokens"]
+    assert "<think>" not in special_tokens_map["additional_special_tokens"]
+    assert "<tool_call>" not in special_tokens_map["additional_special_tokens"]
+    added_token_contents = {
+        token_spec["content"]
+        for token_spec in tokenizer_config["added_tokens_decoder"].values()
+    }
+    assert "<|endoftext|>" in added_token_contents
+    assert "<|im_start|>" in added_token_contents
+    assert "<think>" not in added_token_contents
+    assert "<tool_call>" not in added_token_contents
     assert "model.layers.1.attn.v_lora.lora.0.weight" in index["weight_map"]
     assert "model.layers.0.attn.v_lora.lora.0.weight" not in index["weight_map"]
 
