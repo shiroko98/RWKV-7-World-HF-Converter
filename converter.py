@@ -19,6 +19,8 @@ DEFAULT_ROOT = Path(__file__).resolve().parent
 DEFAULT_VOCAB_SOURCE = DEFAULT_ROOT / "rwkv_vocab_v20260603.txt"
 DEFAULT_CHAT_TEMPLATE_SOURCE = DEFAULT_ROOT / "chat_template.jinja"
 DEFAULT_TOKENIZER_SOURCE = DEFAULT_ROOT / "assets" / "hf_rwkv_tokenizer.py"
+DEFAULT_CONFIGURATION_SOURCE = DEFAULT_ROOT / "assets" / "configuration_rwkv7.py"
+DEFAULT_MODELING_SOURCE = DEFAULT_ROOT / "assets" / "modeling_rwkv7.py"
 CANONICAL_VOCAB_NAME = "rwkv_vocab_v20260603.txt"
 MODEL_INDEX_NAME = "model.safetensors.index.json"
 BLOCK_RE = re.compile(r"blocks\.(\d+)\.(.+)")
@@ -346,6 +348,10 @@ def build_model_config(
     return {
         "model_type": "rwkv7",
         "architectures": ["RWKV7ForCausalLM"],
+        "auto_map": {
+            "AutoConfig": "configuration_rwkv7.RWKV7Config",
+            "AutoModelForCausalLM": "modeling_rwkv7.RWKV7ForCausalLM",
+        },
         "attn_mode": "chunk",
         "hidden_size": hidden_size,
         "hidden_ratio": hidden_ratio,
@@ -453,6 +459,8 @@ def convert_checkpoint(
     vocab_path: Path = DEFAULT_VOCAB_SOURCE,
     chat_template_path: Path = DEFAULT_CHAT_TEMPLATE_SOURCE,
     tokenizer_source: Path = DEFAULT_TOKENIZER_SOURCE,
+    configuration_source: Path = DEFAULT_CONFIGURATION_SOURCE,
+    modeling_source: Path = DEFAULT_MODELING_SOURCE,
     max_shard_size: str = "5GB",
     max_position_embeddings: int | None = None,
     overwrite: bool = False,
@@ -481,6 +489,8 @@ def convert_checkpoint(
     shutil.copyfile(vocab_path, output_dir / CANONICAL_VOCAB_NAME)
     shutil.copyfile(chat_template_path, output_dir / "chat_template.jinja")
     shutil.copyfile(tokenizer_source, output_dir / "hf_rwkv_tokenizer.py")
+    shutil.copyfile(configuration_source, output_dir / "configuration_rwkv7.py")
+    shutil.copyfile(modeling_source, output_dir / "modeling_rwkv7.py")
     (output_dir / "__init__.py").write_text("", encoding="utf-8")
     write_json(output_dir / "config.json", model_config)
     write_json(output_dir / "generation_config.json", generation_config)

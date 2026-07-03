@@ -1,6 +1,6 @@
-# RWKV7 Native `.pth` to vLLM-Compatible HF Converter
+# RWKV7 Native `.pth` to vLLM/Transformers-Compatible HF Converter
 
-This repo converts the latest native RWKV7 `.pth` checkpoints into a Hugging Face style directory whose weight names match vLLM's current RWKV7 loader.
+This repo converts the latest native RWKV7 `.pth` checkpoints into a Hugging Face style directory whose weight names match vLLM's current RWKV7 loader. The converted directory also includes Transformers remote-code files for pure PyTorch loading with `trust_remote_code=True`.
 
 ## What it does
 
@@ -8,15 +8,17 @@ This repo converts the latest native RWKV7 `.pth` checkpoints into a Hugging Fac
 - Maps weights to the names expected by `vllm.model_executor.models.rwkv7`
 - Writes `safetensors` shards plus `model.safetensors.index.json` when needed
 - Generates `config.json`, `generation_config.json`, `tokenizer_config.json`, `special_tokens_map.json`, `added_tokens.json`
-- Copies `rwkv_vocab_v20260603.txt`, `chat_template.jinja`, and `hf_rwkv_tokenizer.py`
+- Copies `rwkv_vocab_v20260603.txt`, `chat_template.jinja`, `hf_rwkv_tokenizer.py`, `configuration_rwkv7.py`, and `modeling_rwkv7.py`
 
-The converter does not depend on Triton or FLA. It only prepares a vLLM-aligned model directory.
+The converter and the Transformers model shim do not depend on Triton or FLA. The safetensors weight names remain vLLM-aligned, and the Transformers implementation is adapted to that naming.
 
 ## Default assets
 
 - Vocabulary: `rwkv_vocab_v20260603.txt`
 - Chat template: `chat_template.jinja`
 - Tokenizer shim: `assets/hf_rwkv_tokenizer.py`
+- Transformers config shim: `assets/configuration_rwkv7.py`
+- Transformers model shim: `assets/modeling_rwkv7.py`
 
 ## Usage
 
@@ -44,6 +46,28 @@ After conversion, the output directory can be used directly as both the model pa
 vllm serve /mnt/d/fsdownload/rwkv7-g0b-7.2b-hf \
   --tokenizer /mnt/d/fsdownload/rwkv7-g0b-7.2b-hf
 ```
+
+## Transformers example
+
+The output directory can also be loaded by Transformers with remote code:
+
+```python
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+path = "/mnt/d/fsdownload/rwkv7-g0b-7.2b-hf"
+tokenizer = AutoTokenizer.from_pretrained(path, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(
+    path,
+    trust_remote_code=True,
+    torch_dtype=torch.bfloat16,
+)
+
+inputs = tokenizer("Hello RWKV", return_tensors="pt")
+outputs = model(**inputs)
+```
+
+The Transformers implementation is a plain PyTorch recurrent path intended for compatibility, validation, and simple inference. For high-throughput serving, use the vLLM RWKV7 implementation.
 
 ## Tests
 

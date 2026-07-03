@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 import torch
 from safetensors.torch import load_file
+from transformers import AutoModelForCausalLM
+import transformers.dynamic_module_utils as dynamic_module_utils
 
 import converter
 
@@ -176,7 +178,11 @@ def test_prepare_output_dir_requires_overwrite_for_non_empty_dir(tmp_path: Path)
     assert list(output_dir.iterdir()) == []
 
 
-def test_convert_checkpoint_writes_vllm_ready_hf_directory(tmp_path: Path, capsys):
+def test_convert_checkpoint_writes_vllm_ready_hf_directory(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+):
     checkpoint_path = tmp_path / "rwkv7-demo-ctx4096.pth"
     torch.save({"state_dict": build_native_state_dict()}, checkpoint_path)
 
@@ -213,6 +219,8 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(tmp_path: Path, capsy
 
     assert config["model_type"] == "rwkv7"
     assert config["architectures"] == ["RWKV7ForCausalLM"]
+    assert config["auto_map"]["AutoConfig"] == "configuration_rwkv7.RWKV7Config"
+    assert config["auto_map"]["AutoModelForCausalLM"] == "modeling_rwkv7.RWKV7ForCausalLM"
     assert config["max_position_embeddings"] == 4096
     assert config["bos_token_id"] == 65532
     assert config["torch_dtype"] == "bfloat16"
@@ -256,7 +264,22 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(tmp_path: Path, capsy
     assert "model.layers.0.attn.v_lora.lora.0.weight" not in all_keys
     assert (output_dir / "rwkv_vocab_v20260603.txt").exists()
     assert (output_dir / "hf_rwkv_tokenizer.py").exists()
+    assert (output_dir / "configuration_rwkv7.py").exists()
+    assert (output_dir / "modeling_rwkv7.py").exists()
     assert (output_dir / "chat_template.jinja").exists()
+
+    monkeypatch.setattr(
+        dynamic_module_utils,
+        "HF_MODULES_CACHE",
+        str(tmp_path / "hf_modules_cache"),
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        output_dir,
+        trust_remote_code=True,
+        torch_dtype=torch.float32,
+    )
+    outputs = model(torch.tensor([[1, 2, 3]]))
+    assert outputs.logits.shape == (1, 3, 64)
 
 
 def test_load_native_rwkv7_state_dict_rejects_non_native_checkpoint(tmp_path: Path):
