@@ -225,11 +225,11 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
     assert config["bos_token_id"] == 65532
     assert config["torch_dtype"] == "bfloat16"
     generation_config = json.loads((output_dir / "generation_config.json").read_text(encoding="utf-8"))
-    assert generation_config["temperature"] == 1.0
-    assert generation_config["top_p"] == 0.5
-    assert generation_config["frequency_penalty"] == 0.3
-    assert generation_config["presence_penalty"] == 0.4
-    assert generation_config["repetition_penalty"] == 1.1
+    assert generation_config["temperature"] == 0.55
+    assert generation_config["top_p"] == 0.6
+    assert generation_config["frequency_penalty"] == 0.0
+    assert generation_config["presence_penalty"] == 0.0
+    assert generation_config["repetition_penalty"] == 1.2
     assert "logit_bias" not in generation_config
     assert "seed" not in generation_config
     assert generation_config["chat_template_kwargs"] == {

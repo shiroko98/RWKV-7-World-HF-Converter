@@ -61,8 +61,8 @@ def test_converted_model(model_dir: str):
                 max_new_tokens=512,
                 streamer=streamer,
                 do_sample=True,
-                temperature=1.0,
-                top_p=0.5,
+                temperature=0.55,
+                top_p=0.6,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id
             )
