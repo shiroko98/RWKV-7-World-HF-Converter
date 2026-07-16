@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 import torch
 from safetensors.torch import load_file
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import transformers.dynamic_module_utils as dynamic_module_utils
 
 import converter
@@ -82,6 +82,10 @@ def write_vocab(path: Path) -> None:
         "1 'a' 1",
         "2 'b' 1",
         "3 '\\n\\n' 2",
+        "4 'a<' 2",
+        "5 '<' 1",
+        "6 'think' 5",
+        "7 '>' 1",
         "65530 '<|im_start|>' 12",
         "65531 '<|im_end|>' 10",
         "65532 '<|endoftext|>' 13",
@@ -238,19 +242,12 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
     assert tokenizer_config["tokenizer_class"] == "RwkvTokenizer"
     assert tokenizer_config["auto_map"]["AutoTokenizer"][0] == "hf_rwkv_tokenizer.RwkvTokenizer"
     assert tokenizer_config["chat_template"] == "{{ '<|im_start|>User: ' + messages[0]['content'] }}"
-    assert "<|im_start|>" in tokenizer_config["additional_special_tokens"]
-    assert "<think>" not in tokenizer_config["additional_special_tokens"]
-    assert "<tool_call>" not in tokenizer_config["additional_special_tokens"]
-    assert "<think>" not in special_tokens_map["additional_special_tokens"]
-    assert "<tool_call>" not in special_tokens_map["additional_special_tokens"]
-    added_token_contents = {
-        token_spec["content"]
-        for token_spec in tokenizer_config["added_tokens_decoder"].values()
-    }
-    assert "<|endoftext|>" in added_token_contents
-    assert "<|im_start|>" in added_token_contents
-    assert "<think>" not in added_token_contents
-    assert "<tool_call>" not in added_token_contents
+    assert tokenizer_config["additional_special_tokens"] == []
+    assert special_tokens_map["additional_special_tokens"] == []
+    assert {
+        token_spec["content"]: int(token_id)
+        for token_id, token_spec in tokenizer_config["added_tokens_decoder"].items()
+    } == {"<|endoftext|>": 65532}
     assert "model.layers.1.attn.v_lora.lora.0.weight" in index["weight_map"]
     assert "model.layers.0.attn.v_lora.lora.0.weight" not in index["weight_map"]
 
@@ -273,6 +270,15 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
         "HF_MODULES_CACHE",
         str(tmp_path / "hf_modules_cache"),
     )
+    tokenizer = AutoTokenizer.from_pretrained(output_dir, trust_remote_code=True)
+    assert tokenizer.rwkv_tokenizer_mode == "legacy_trie"
+    assert tokenizer.all_special_tokens == ["<|endoftext|>"]
+    assert tokenizer.all_special_ids == [65532]
+    assert tokenizer.convert_tokens_to_ids("<think>") == 65533
+    # A whole-string trie pass must win over HF special-token isolation:
+    # the vocab has `a<` but no need to use the `<think>` vocabulary entry.
+    assert tokenizer.encode("a<think>", add_special_tokens=False) == [4, 6, 7]
+
     model = AutoModelForCausalLM.from_pretrained(
         output_dir,
         trust_remote_code=True,

@@ -20,6 +20,10 @@ VOCAB_FILES_NAMES = {
     "vocab_file": "rwkv_vocab_v20260603.txt",
 }
 
+LEGACY_TRIE_TOKENIZER_MODE = "legacy_trie"
+SPECIAL_FIRST_TOKENIZER_MODE = "special_first"
+DEFAULT_RWKV_TOKENIZER_MODE = LEGACY_TRIE_TOKENIZER_MODE
+
 
 class TRIE:
     __slots__ = tuple("ch,to,values,front".split(","))
@@ -117,6 +121,16 @@ class RwkvTokenizer(PreTrainedTokenizer):
         if not os.path.isfile(vocab_file):
             raise ValueError(f"Can't find RWKV vocab file at path '{vocab_file}'.")
 
+        self.rwkv_tokenizer_mode = kwargs.pop(
+            "rwkv_tokenizer_mode", DEFAULT_RWKV_TOKENIZER_MODE
+        )
+        if self.rwkv_tokenizer_mode not in {
+            LEGACY_TRIE_TOKENIZER_MODE,
+            SPECIAL_FIRST_TOKENIZER_MODE,
+        }:
+            raise ValueError(
+                f"Unsupported RWKV tokenizer mode: {self.rwkv_tokenizer_mode!r}."
+            )
         self.add_bos_token = bool(kwargs.pop("add_bos_token", False))
         self.trie_tokenizer = RWKV_TOKENIZER(vocab_file)
         self.encoder = self.trie_tokenizer.token2idx
@@ -139,12 +153,25 @@ class RwkvTokenizer(PreTrainedTokenizer):
         vocab.update(self.added_tokens_encoder)
         return vocab
 
+    def tokenize(self, text, **kwargs):
+        if self.rwkv_tokenizer_mode == LEGACY_TRIE_TOKENIZER_MODE:
+            # Old SFT data runs one greedy longest-match pass over the complete
+            # rendered prompt. Skip HF added-token splitting so marker text may
+            # merge with its left context exactly as it did during training.
+            del kwargs
+            return self._tokenize(text)
+        return super().tokenize(text, **kwargs)
+
     def _tokenize(self, text, split_special_tokens=False):
         del split_special_tokens
         return self.trie_tokenizer.encode(text)[0]
 
     def _convert_token_to_id(self, token):
-        return token
+        if isinstance(token, int):
+            return token
+        if isinstance(token, bytes):
+            token = token.decode("utf-8", errors="replace")
+        return self.encoder.get(token.encode("utf-8"), self.unk_token_id)
 
     def _convert_id_to_token(self, index):
         token = self.decoder.get(index, self.unk_token)
