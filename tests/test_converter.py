@@ -289,6 +289,7 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
         str(tmp_path / "hf_modules_cache"),
     )
     tokenizer = AutoTokenizer.from_pretrained(output_dir, trust_remote_code=True)
+    assert tokenizer.rwkv_tokenizer_mode == "special_first"
     assert tokenizer.all_special_tokens == [
         "<|endoftext|>",
         "<|im_start|>",
