@@ -79,12 +79,12 @@ SPECIAL_TOKEN_FALLBACKS = (
     "<s>",
 )
 
+# These markers already occupy rows in the native RWKV vocabulary. Export
+# them as HF special tokens with their existing IDs so the tokenizer isolates
+# them before trie longest-match tokenization.
 HF_ADDITIONAL_SPECIAL_TOKENS = [
     "<|im_start|>",
     "<|im_end|>",
-]
-
-PLAIN_CONTROL_TOKENS = [
     "<think>",
     "<tool_call>",
 ]
@@ -243,7 +243,6 @@ def read_vocab_token_ids(vocab_path: Path) -> dict[str, int]:
             if (
                 token_text in SPECIAL_TOKEN_FALLBACKS
                 or token_text in HF_ADDITIONAL_SPECIAL_TOKENS
-                or token_text in PLAIN_CONTROL_TOKENS
             ):
                 token_ids[token_text] = token_id
     return token_ids
