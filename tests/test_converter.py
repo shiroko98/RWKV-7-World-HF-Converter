@@ -244,6 +244,7 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
         "enable_thinking": True,
     }
     assert tokenizer_config["tokenizer_class"] == "RwkvTokenizer"
+    assert "rwkv_tokenizer_mode" not in tokenizer_config
     assert tokenizer_config["auto_map"]["AutoTokenizer"][0] == "hf_rwkv_tokenizer.RwkvTokenizer"
     assert tokenizer_config["chat_template"] == "{{ '<|im_start|>User: ' + messages[0]['content'] }}"
     expected_additional_special_tokens = [
@@ -289,7 +290,7 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
         str(tmp_path / "hf_modules_cache"),
     )
     tokenizer = AutoTokenizer.from_pretrained(output_dir, trust_remote_code=True)
-    assert tokenizer.rwkv_tokenizer_mode == "special_first"
+    assert not hasattr(tokenizer, "rwkv_tokenizer_mode")
     assert tokenizer.all_special_tokens == [
         "<|endoftext|>",
         "<|im_start|>",
@@ -300,6 +301,10 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
     assert tokenizer.all_special_ids == [65532, 65530, 65531, 65533, 65534]
     assert tokenizer.convert_tokens_to_ids("<think>") == 65533
     assert tokenizer.convert_tokens_to_ids("<tool_call>") == 65534
+    ordinary_text = "a b"
+    assert tokenizer.encode(ordinary_text, add_special_tokens=False) == tokenizer.trie_tokenizer.encode(ordinary_text)[0]
+    assert tokenizer.decode([4, 65533, 10]) == " <think>think"
+    assert tokenizer.decode([4, 65533, 10], skip_special_tokens=True) == " think"
 
     # Regression cases: ordinary trie tokens such as " <", ".<", and "><"
     # must not consume the start of a registered special token.
