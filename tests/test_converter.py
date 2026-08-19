@@ -304,6 +304,9 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
     ordinary_text = "a b"
     assert tokenizer.encode(ordinary_text, add_special_tokens=False) == tokenizer.trie_tokenizer.encode(ordinary_text)[0]
     assert tokenizer.decode([4, 65533, 10]) == " <think>think"
+    assert tokenizer.decode(
+        [4, 65533, 10], spaces_between_special_tokens=True
+    ) == " <think>think"
     assert tokenizer.decode([4, 65533, 10], skip_special_tokens=True) == " think"
 
     # Regression cases: ordinary trie tokens such as " <", ".<", and "><"

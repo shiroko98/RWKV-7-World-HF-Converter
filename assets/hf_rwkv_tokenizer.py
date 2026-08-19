@@ -161,6 +161,31 @@ class RwkvTokenizer(PreTrainedTokenizer):
             for token in tokens
         ).decode("utf-8")
 
+    def _decode(
+        self,
+        token_ids,
+        skip_special_tokens=False,
+        clean_up_tokenization_spaces=None,
+        **kwargs,
+    ):
+        """Preserve the exact RWKV byte sequence around special markers.
+
+        New RWKV SFT checkpoints register markers such as ``<think>`` as HF
+        special tokens so encoding isolates them before greedy trie matching.
+        Transformers otherwise defaults to joining the decoded ordinary and
+        special-token chunks with spaces, which changes ``" <think>think"``
+        into ``"  <think> think"``. RWKV decoding must concatenate the token
+        text exactly instead.
+        """
+        kwargs.pop("spaces_between_special_tokens", None)
+        return super()._decode(
+            token_ids,
+            skip_special_tokens=skip_special_tokens,
+            clean_up_tokenization_spaces=clean_up_tokenization_spaces,
+            spaces_between_special_tokens=False,
+            **kwargs,
+        )
+
     def save_vocabulary(
         self, save_directory: str, filename_prefix: Optional[str] = None
     ) -> Tuple[str]:
