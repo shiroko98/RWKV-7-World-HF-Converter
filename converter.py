@@ -82,9 +82,10 @@ SPECIAL_TOKEN_FALLBACKS = (
 # These markers already occupy rows in the native RWKV vocabulary. Export
 # them as HF special tokens with their existing IDs so the tokenizer isolates
 # them before trie longest-match tokenization.
+CHAT_EOS_TOKEN = "<|im_end|>"
+
 HF_ADDITIONAL_SPECIAL_TOKENS = [
     "<|im_start|>",
-    "<|im_end|>",
     "<think>",
     "<tool_call>",
 ]
@@ -242,6 +243,7 @@ def read_vocab_token_ids(vocab_path: Path) -> dict[str, int]:
                     continue
             if (
                 token_text in SPECIAL_TOKEN_FALLBACKS
+                or token_text == CHAT_EOS_TOKEN
                 or token_text in HF_ADDITIONAL_SPECIAL_TOKENS
             ):
                 token_ids[token_text] = token_id
@@ -264,12 +266,16 @@ def build_tokenizer_files(
 ) -> tuple[dict[str, int], dict[str, Any], dict[str, Any], dict[str, int]]:
     token_ids = read_vocab_token_ids(vocab_path)
     primary_special_token = resolve_primary_special_token(token_ids)
+    if CHAT_EOS_TOKEN not in token_ids:
+        raise ConversionError(
+            f"Vocabulary is missing the chat end-of-message token {CHAT_EOS_TOKEN!r}."
+        )
     available_extra_tokens = [
         token for token in HF_ADDITIONAL_SPECIAL_TOKENS if token in token_ids
     ]
     hf_special_token_ids = {
         token: token_ids[token]
-        for token in (primary_special_token, *available_extra_tokens)
+        for token in (primary_special_token, CHAT_EOS_TOKEN, *available_extra_tokens)
     }
     chat_template = chat_template_path.read_text(encoding="utf-8")
 
@@ -284,8 +290,9 @@ def build_tokenizer_files(
                 None,
             ]
         },
+        "add_bos_token": False,
         "bos_token": primary_special_token,
-        "eos_token": primary_special_token,
+        "eos_token": CHAT_EOS_TOKEN,
         "unk_token": primary_special_token,
         "pad_token": primary_special_token,
         "additional_special_tokens": available_extra_tokens,
@@ -306,7 +313,7 @@ def build_tokenizer_files(
 
     special_tokens_map = {
         "bos_token": primary_special_token,
-        "eos_token": primary_special_token,
+        "eos_token": CHAT_EOS_TOKEN,
         "unk_token": primary_special_token,
         "pad_token": primary_special_token,
         "additional_special_tokens": available_extra_tokens,
@@ -314,7 +321,7 @@ def build_tokenizer_files(
 
     explicit_ids = {
         "bos_token_id": token_ids[primary_special_token],
-        "eos_token_id": token_ids[primary_special_token],
+        "eos_token_id": token_ids[CHAT_EOS_TOKEN],
         "pad_token_id": token_ids[primary_special_token],
     }
 

@@ -152,6 +152,16 @@ def test_build_tokenizer_files_requires_supported_eot_token(tmp_path: Path):
         converter.build_tokenizer_files(vocab_path, chat_template_path)
 
 
+def test_build_tokenizer_files_requires_chat_eos_token(tmp_path: Path):
+    vocab_path = tmp_path / "rwkv_vocab_v20260603.txt"
+    vocab_path.write_text("65532 '<|endoftext|>' 13\n", encoding="utf-8")
+    chat_template_path = tmp_path / "chat_template.jinja"
+    chat_template_path.write_text("{{ messages }}", encoding="utf-8")
+
+    with pytest.raises(converter.ConversionError, match="end-of-message"):
+        converter.build_tokenizer_files(vocab_path, chat_template_path)
+
+
 def test_read_vocab_token_ids_skips_binary_tokens_and_prefers_real_special_tokens(tmp_path: Path):
     vocab_path = tmp_path / "rwkv_vocab_v20260603.txt"
     vocab_path.write_text(
@@ -231,8 +241,12 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
     assert config["auto_map"]["AutoModelForCausalLM"] == "modeling_rwkv7.RWKV7ForCausalLM"
     assert config["max_position_embeddings"] == 4096
     assert config["bos_token_id"] == 65532
+    assert config["eos_token_id"] == 65531
+    assert config["pad_token_id"] == 65532
     assert config["torch_dtype"] == "bfloat16"
     generation_config = json.loads((output_dir / "generation_config.json").read_text(encoding="utf-8"))
+    assert generation_config["eos_token_id"] == 65531
+    assert generation_config["pad_token_id"] == 65532
     assert generation_config["temperature"] == 0.55
     assert generation_config["top_p"] == 0.6
     assert generation_config["frequency_penalty"] == 0.0
@@ -244,12 +258,20 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
         "enable_thinking": True,
     }
     assert tokenizer_config["tokenizer_class"] == "RwkvTokenizer"
+    assert tokenizer_config["add_bos_token"] is False
+    assert tokenizer_config["bos_token"] == "<|endoftext|>"
+    assert tokenizer_config["eos_token"] == "<|im_end|>"
+    assert tokenizer_config["pad_token"] == "<|endoftext|>"
+    assert tokenizer_config["unk_token"] == "<|endoftext|>"
+    assert special_tokens_map["bos_token"] == "<|endoftext|>"
+    assert special_tokens_map["eos_token"] == "<|im_end|>"
+    assert special_tokens_map["pad_token"] == "<|endoftext|>"
+    assert special_tokens_map["unk_token"] == "<|endoftext|>"
     assert "rwkv_tokenizer_mode" not in tokenizer_config
     assert tokenizer_config["auto_map"]["AutoTokenizer"][0] == "hf_rwkv_tokenizer.RwkvTokenizer"
     assert tokenizer_config["chat_template"] == "{{ '<|im_start|>User: ' + messages[0]['content'] }}"
     expected_additional_special_tokens = [
         "<|im_start|>",
-        "<|im_end|>",
         "<think>",
         "<tool_call>",
     ]
@@ -291,18 +313,28 @@ def test_convert_checkpoint_writes_vllm_ready_hf_directory(
     )
     tokenizer = AutoTokenizer.from_pretrained(output_dir, trust_remote_code=True)
     assert not hasattr(tokenizer, "rwkv_tokenizer_mode")
+    assert tokenizer.add_bos_token is False
+    assert tokenizer.bos_token == "<|endoftext|>"
+    assert tokenizer.bos_token_id == 65532
+    assert tokenizer.eos_token == "<|im_end|>"
+    assert tokenizer.eos_token_id == 65531
+    assert tokenizer.pad_token_id == 65532
+    assert tokenizer.unk_token_id == 65532
     assert tokenizer.all_special_tokens == [
         "<|endoftext|>",
-        "<|im_start|>",
         "<|im_end|>",
+        "<|im_start|>",
         "<think>",
         "<tool_call>",
     ]
-    assert tokenizer.all_special_ids == [65532, 65530, 65531, 65533, 65534]
+    assert tokenizer.all_special_ids == [65532, 65531, 65530, 65533, 65534]
     assert tokenizer.convert_tokens_to_ids("<think>") == 65533
     assert tokenizer.convert_tokens_to_ids("<tool_call>") == 65534
     ordinary_text = "a b"
-    assert tokenizer.encode(ordinary_text, add_special_tokens=False) == tokenizer.trie_tokenizer.encode(ordinary_text)[0]
+    ordinary_ids = tokenizer.trie_tokenizer.encode(ordinary_text)[0]
+    assert tokenizer.num_special_tokens_to_add() == 0
+    assert tokenizer.encode(ordinary_text, add_special_tokens=False) == ordinary_ids
+    assert tokenizer.encode(ordinary_text, add_special_tokens=True) == ordinary_ids
     assert tokenizer.decode([4, 65533, 10]) == " <think>think"
     assert tokenizer.decode(
         [4, 65533, 10], spaces_between_special_tokens=True

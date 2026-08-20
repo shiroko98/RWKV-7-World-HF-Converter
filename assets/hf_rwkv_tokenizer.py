@@ -108,7 +108,7 @@ class RwkvTokenizer(PreTrainedTokenizer):
         self,
         vocab_file,
         bos_token="<|endoftext|>",
-        eos_token="<|endoftext|>",
+        eos_token="<|im_end|>",
         unk_token="<|endoftext|>",
         pad_token="<|endoftext|>",
         **kwargs,
